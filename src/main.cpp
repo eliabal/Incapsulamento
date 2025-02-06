@@ -1,8 +1,5 @@
 #include <iostream>
 #include <string>
-#include <fstream>
-#include <bitset>
-#include <sstream>
 
 #include "funzioni.h"
 #include "funzioni.cpp"
