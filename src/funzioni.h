@@ -20,6 +20,17 @@ struct IpHeader{
   string DestinationIpAddress;
   string Options;
   string Padding;
+  EthernetV2Header Frame;
+};
+
+struct EthernetV2Header{
+  string Preamble;
+  string SFD;
+  string DestinationMACAddress;
+  string SourceMACAddress;
+  string Type;
+  string Data;
+  string FCS;
 };
 
 IpHeader datagram();
