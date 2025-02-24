@@ -1,9 +1,22 @@
 #ifndef FUNZIONI_H
 #define FUNZIONI_H
 
+// Polinomio standard per CRC-32 nell'Ethernet
+#define POLYNOMIAL 0x04C11DB7 
+
 #include <string>
 
 using namespace std;
+
+struct EthernetV2Header{
+  string Preamble;
+  string SFD;
+  string DestinationMACAddress;
+  string SourceMACAddress;
+  string Type;
+  string Data;
+  string FCS;
+};
 
 struct IpHeader{
   string Version;
@@ -23,20 +36,14 @@ struct IpHeader{
   EthernetV2Header Frame;
 };
 
-struct EthernetV2Header{
-  string Preamble;
-  string SFD;
-  string DestinationMACAddress;
-  string SourceMACAddress;
-  string Type;
-  string Data;
-  string FCS;
-};
+// Funzione per calcolare il Frame Check Sequence (FCS) usando CRC-32
+string calculateFCS(EthernetV2Header frame);
 
+// Funzione per creare un datagramma IP con header Ethernet
 IpHeader datagram();
 string leggiFile();
 void scriviFile(string testo);
-string chatToBin(string carattere);
+string charToBin(string carattere);
 string stringaABinario(string testo);
 string binarioAStringa(string input);
 
