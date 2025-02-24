@@ -1,5 +1,6 @@
 #include <iostream>
 #include <string>
+#include <vector>
 #include <fstream>
 #include <bitset>
 #include <sstream>
@@ -8,23 +9,124 @@
 
 using namespace std;
 
-IpHeader datagram() {
-    IpHeader header;
-    header.Version = "0100"; // IPv4 (4)
-    header.HLen = "0101"; // 5 words x 4 = 20 bytes (5)
-    header.TOS = "00000000"; // Tipo di servizio di default (0)
-    header.TotalLength = "00000000 00000000"; // Lunghezza totale del pacchetto (da calcolare dinamicamente)
-    header.Identification = "00000000 00000000"; // Dinamico in base al pacchetto
-    header.Flags = "010"; // DF (Don't Fragment) settato (2)
-    header.FragmentOffset = "0000000000000"; // Nessuna frammentazione di default (0)
-    header.TTL = "01000000"; // Predefinito per Linux (su Windows è 128) (64)
-    header.Protocol = "00000110"; // Predefinito in TCP (può essere cambiato) (6)
-    header.HeaderChecksum = "00000000 00000000"; // Calcolato dinamicamente
-    header.SourceIpAddress = "00000000 00000000 00000000 00000000"; // Indirizzo di provenienza (da specificare)
-    header.DestinationIpAddress = "00000000 00000000 00000000 00000000"; // Indirizzo di destinazione (da specificare)
-    header.Options = "00000000"; // Nessuna opzione di default (0)
-    header.Padding = "00000000"; // Padding di default (0)
+// Funzione per convertire una stringa binaria in un array di byte (utile al calcolo del CRC-32)
+vector<uint8_t> binaryStringToBytes(const string& binaryString) {
+    vector<uint8_t> bytes;
+    for (size_t i = 0; i < binaryString.size(); i += 8) {
+        bitset<8> byte(binaryString.substr(i, 8));
+        bytes.push_back(static_cast<uint8_t>(byte.to_ulong()));
+    }
+    return bytes;
+}
+
+// Funzione per calcolare il CRC-32
+string calculateFCS(EthernetV2Header frame) {
+    // Concatenazione dei campi necessari per il calcolo del CRC
+    string data = frame.DestinationMACAddress + 
+                  frame.SourceMACAddress + 
+                  frame.Type + 
+                  frame.Data;
     
+    // Convertire la stringa binaria in un array di byte
+    vector<uint8_t> bytes = binaryStringToBytes(data);
+
+    // Inizializzazione del CRC a tutti 1 (0xFFFFFFFF)
+    uint32_t crc = 0xFFFFFFFF;
+    
+    // Calcolo del CRC
+    for (uint8_t byte : bytes) {
+        crc ^= (byte << 24);
+        for (int i = 0; i < 8; i++) {
+            if (crc & 0x80000000) {
+                crc = (crc << 1) ^ POLYNOMIAL;
+            } else {
+                crc <<= 1;
+            }
+        }
+    }
+
+    // Complemento a 1 del CRC
+    crc = ~crc;
+    
+    // Convertire il CRC a stringa binaria
+    bitset<32> crcBits(crc);
+    return crcBits.to_string();
+}
+
+IpHeader datagram() { 
+    IpHeader header; 
+    
+    // Versione IPv4 (4)
+    header.Version = "0100";  
+
+    // Header Length: 5 words x 4 byte = 20 byte (5) 
+    header.HLen = "0101"; 
+
+    // Type of Service (TOS):
+    // - Precedence: 3 (011)
+    // - Delay: 0
+    // - Throughput: 0 
+    // - Reliability: 1
+    // - Cost: 1
+    header.TOS = "01100011"; 
+
+    // Total Length: 1500 byte 
+    header.TotalLength = "0000010111011100";  
+
+    // Identification: 1
+    header.Identification = "0000000000000001"; 
+
+    // Flags:
+    // - DF (Don't Fragment): 0 
+    // - MF (More Fragment): 0
+    header.Flags = "000";  
+
+    // Fragment Offset: 0
+    header.FragmentOffset = "0000000000000"; 
+
+    // Time to Live: 64
+    header.TTL = "01000000"; 
+
+    // Protocol: TCP (6)
+    header.Protocol = "00000110"; 
+
+    // Header Checksum: 0x0000 (da calcolare dinamicamente)
+    header.HeaderChecksum = "0000000000000000"; 
+
+    // Indirizzo IP Sorgente: 192.168.100.200 (in binario)
+    header.SourceIpAddress = "11000000101010000110010011001000"; 
+
+    // Indirizzo IP Destinazione: 192.168.1.1 (in binario)
+    header.DestinationIpAddress = "11000000101010000000000100000001"; 
+
+    // Campi Opzioni IP:
+    // - Copy Flag: 0 
+    // - Class Number: 0
+    // - Option Number: 0
+    header.Options = "00000000"; 
+
+    // Padding (nessun padding in questo caso)
+    header.Padding = "00000000"; 
+
+    // Ethernet Frame
+    header.Frame.Preamble = "1010101010101010101010101010101010101010101010101010101010101010"; // 8 byte preambolo
+    header.Frame.SFD = "11010101"; // Start Frame Delimiter
+
+    // Indirizzo MAC Destinazione (dsap): ff:08:00:c2:54:7b
+    header.Frame.DestinationMACAddress = "111111110000100000000000110000100101010001111011"; 
+
+    // Indirizzo MAC Sorgente (ssap): 00:ff:80:ac:52:eb
+    header.Frame.SourceMACAddress = "000000001111111110000000101011000101001011101011"; 
+
+    // Type (Ethertype): 0x8000 (verificare endianness)
+    header.Frame.Type = "1000000000000000"; 
+
+    // Data (vuoto in questo esempio, può essere popolato in base ai dati dell'applicazione)
+    header.Frame.Data = ""; 
+
+    // Frame Check Sequence (FCS) (da calcolare dinamicamente)
+    header.Frame.FCS = calculateFCS(header.Frame);; 
+
     return header;
 }
 
@@ -47,16 +149,16 @@ void scriviFile(string testo){
     fileOut.close();    // Chiudo il file
 }
 
-string chatToBin(string carattere){
+string charToBin(char carattere){
     string binario= "";
-    binario +=bitset<8>(carattere).to_string() + " ";
+    binario += bitset<8>(carattere).to_string() + " ";
     return binario;
 }
 
 string stringaABinario(string testo){
     string binario = "";
     for(char carattere : testo) {
-        binario += bitset<8>(carattere).to_string() + " ";
+        binario += charToBin(carattere);
     }
     return binario;
 }
